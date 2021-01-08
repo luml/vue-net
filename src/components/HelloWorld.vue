@@ -1,42 +1,110 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
-  </div>
+  <h1>Hey, this a text whiteboard</h1>
+  <div id="whiteboard" style="background: lightgray; width: 100%; height: 100vh"></div>
 </template>
 
 <script>
+import { WhiteWebSdk } from "white-web-sdk";
+
 export default {
-  name: 'HelloWorld',
+  name: "HelloWorld",
   props: {
-    msg: String
-  }
-}
+    msg: String,
+  },
+  data() {
+    return {
+      sdkToken:
+        "NETLESSSDK_YWs9T3ZxYkIwdDBkNTF5LUJjUyZub25jZT0xNjEwMDc0MjM5MjM0MDAmcm9sZT0wJnNpZz1mY2FiODdlYTQ2ZDVhNjNiZGEwZjA4N2ViYjAyOTUzYTcxZDdkYzc2MGViZGJiZGViNTMzMGZlZTAyYzU4MGEy",
+      appIdentifier: "TJsFsFC2EeuJTUutVz15aw/6bdcdbrmRoNfdQ",
+    };
+  },
+  methods: {
+    initRoom() {
+      // 构造创建房间的 Request
+      var url = "https://api.netless.link/v5/rooms";
+      const appIdentifier = "TJsFsFC2EeuJTUutVz15aw/6bdcdbrmRoNfdQ";
+      const sdkToken =
+        "NETLESSSDK_YWs9T3ZxYkIwdDBkNTF5LUJjUyZub25jZT0xNjEwMDc0MjM5MjM0MDAmcm9sZT0wJnNpZz1mY2FiODdlYTQ2ZDVhNjNiZGEwZjA4N2ViYjAyOTUzYTcxZDdkYzc2MGViZGJiZGViNTMzMGZlZTAyYzU4MGEy";
+
+      var requestInit = {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          token: sdkToken,
+        },
+      };
+
+      window
+        .fetch(url, requestInit)
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (json) {
+          // 创建房间成功，获取房间的 uuid
+          var roomUUID = json.uuid;
+
+          // 构造申请 Room Token 的 Request
+          const urlUuid = "https://api.netless.link/v5/tokens/rooms/" + roomUUID;
+          var requestInitUuid = {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              token: sdkToken,
+            },
+            body: JSON.stringify({
+              lifespan: 0, // 表明 Room Token 永不失效
+              role: "admin", // 表明 Room Token 有 Admin 的权限
+            }),
+          };
+          fetch(urlUuid, requestInitUuid)
+            .then(function (response) {
+              return response.json();
+            })
+            .then(function (roomToken) {
+              // 成功获取房间的 Room Token
+              // this.joinRoomInit(roomUUID, roomToken);
+              var whiteWebSdk = new WhiteWebSdk({
+                appIdentifier: appIdentifier,
+              });
+              var joinRoomParams = {
+                uuid: roomUUID,
+                roomToken: roomToken,
+              };
+              whiteWebSdk
+                .joinRoom(joinRoomParams)
+                .then(function (room) {
+                  // 加入房间成功，获取 room 对象
+                  // 并将之前的 <div id="whiteboard"/> 占位符变成白板
+                  room.bindHtmlElement(document.getElementById("whiteboard"));
+                  // 把教具切换为「铅笔」
+
+                  var strokeColor = [0, 0, 155]; // 用 RGB 标示的颜色，这里标示蓝色
+                  var strokeWidth = 10; // 线条粗细，10 是一个很粗的值
+                  // room.setMemberState({ currentApplianceName: "pencil" });
+                  room.setMemberState({
+                    currentApplianceName: "text", // text, ellipse, pencil
+                    strokeColor: strokeColor,
+                    strokeWidth: strokeWidth,
+                  });
+                })
+                .catch(function (err) {
+                  // 加入房间失败
+                  console.error(err);
+                });
+            })
+            .catch(function (err) {
+              console.error(err);
+            });
+        })
+        .catch(function (err) {
+          console.error(err);
+        });
+    },
+  },
+  mounted() {
+    this.initRoom();
+  },
+};
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
